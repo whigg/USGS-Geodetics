@@ -1,0 +1,126 @@
+function [done] = Update_Wx(update_wx)
+
+
+if update_wx==1
+    addpath data\Temperature
+    filenamec8='c8_hoboF.txt';
+    camp8tempF=importdata(filenamec8);
+    camp8=filenamec8(:,1:3);
+
+    filenamec17='c17_hoboF.txt';
+    camp17tempF=importdata(filenamec17);
+    camp17=filenamec17(:,1:3);
+
+    filenamec10='c10_hoboF.txt';
+    camp10tempF=importdata(filenamec10);
+    camp10=filenamec10(:,1:3);
+
+    %Juneau airport temperature data: http://pajk.arh.noaa.gov/cliMap/akClimate.php
+    filename = 'JNU_WX.txt'; %insert target file here
+    delimiter = '\t';
+    startRow = 0; % based on standard one row header "Date Time, High-Res Temp(*F), High-Res Temp (*C)" or similar
+
+    formatSpec = '%s %s %f %f %f %f %f %f %f %f %s %f';% Format string for the collumns: date, date, double, double. See TEXTSCAN documentation.
+    fileID = fopen(filename,'r');
+    dataArray = textscan(fileID, formatSpec, 'Delimiter', delimiter, 'EmptyValue' ,NaN,'HeaderLines' ,startRow, 'ReturnOnError', false);
+    fclose(fileID);
+    date= datenum(dataArray{1}, 'mm/dd/yyyy');% Convert the contents of column with dates to serial date numbers using date format string (datenum).
+    daynum=dataArray{:,2};
+    TempFmin = dataArray{:, 3};%  Temp f
+    TempFmax = dataArray{:, 4};
+    TempFmean = dataArray{:, 5};
+    HDD = dataArray{:, 6};
+    CDD = dataArray{:, 7};
+    precip = dataArray{:, 8};
+    snowfall = dataArray{:, 9};
+    snowdepth= dataArray{:, 10};
+    peakwind = dataArray{:, 11};
+    meanwind = dataArray{:, 12};
+
+
+    %% 
+    for i=2:length(camp8tempF.textdata(:,1))-6
+        a=cell2mat(camp8tempF.textdata(i,1));
+        serial(i-1,1)=str2num(a);
+    end
+    %% 
+
+    for i=1:length(camp8tempF.data(1,:))
+        for ii=0:365
+            ind=find(serial(:,1)>ii & serial(:,1)<ii+1);
+            count=length(ind);
+            if count>18
+                daily8F(ii+1,i)=nanmean(camp8tempF.data(ind-1,i));
+                daily17F(ii+1,i)=nanmean(camp17tempF.data(ind-1,i));
+                daily10F(ii+1,i)=nanmean(camp10tempF.data(ind-1,i));
+            else
+                daily8F(ii+1,i)=NaN;
+                daily17F(ii+1,i)=NaN;
+                daily10F(ii+1,i)=NaN;
+            end
+        end
+    end
+    %% 
+
+    daily8C=(daily8F-32)*(5/9);
+    daily17C=(daily17F-32)*(5/9);
+    daily10C=(daily10F-32)*(5/9);
+    %% 
+
+    meanstr='dailyC.mat';
+    n=length(meanstr);
+    n1=n+length(camp8);
+    c8dailyC(:,1:3)=camp8;
+    c17dailyC(:,1:3)=camp17;
+    c10dailyC(:,1:3)=camp10;
+    c8dailyC(:,4:n1)=meanstr;
+    c17dailyC(:,4:n1)=meanstr;
+    c10dailyC(:,4:n1)=meanstr;
+    %% 
+    save([pwd '\data\Temperature\c8dailyC.mat'],'daily8C');        
+    save([pwd '\data\Temperature\c17dailyC.mat'],'daily17C');
+    save([pwd '\data\Temperature\c10dailyC.mat'],'daily10C');
+    %% 
+    TempCmax=(TempFmax-32)*(5/9);
+    TempCmin=(TempFmin-32)*(5/9);
+    TempCmean=(TempFmean-32)*(5/9);
+    precipcm=precip/0.3937;
+    a=datestr(date,'mm/dd/yyyy');
+    b=a(:,7:10);
+    c=str2num(b);
+    firstyr=str2num(b(1,:));
+    presyr=str2num(b(length(b),:));
+    record_lngth=presyr-firstyr;
+    for i=1:record_lngth
+        ind=find(c==i+1942);
+        count=length(ind);
+        if count==366
+            JNU_meanC(:,i)=TempCmean(ind);
+            JNU_minC(:,i)=TempCmin(ind);
+            JNU_maxC(:,i)=TempCmax(ind);
+            JNU_precip(:,1)=precipcm(ind);
+        else
+            JNU_meanC(1:59,i)=TempCmean(ind(1:59));
+            JNU_meanC(60,i)=NaN;
+            JNU_meanC(61:366,i)=TempCmean(ind(60:end));
+            JNU_minC(1:59,i)=TempCmin(ind(1:59));
+            JNU_minC(60,i)=NaN;
+            JNU_minC(61:366,i)=TempCmin(ind(60:end));
+            JNU_maxC(1:59,i)=TempCmax(ind(1:59));
+            JNU_maxC(60,i)=NaN;
+            JNU_maxC(61:366,i)=TempCmax(ind(60:end));
+            JNU_precip(1:59,i)=precipcm(ind(1:59));
+            JNU_precip(60,i)=NaN;
+            JNU_precip(61:366,i)=precipcm(ind(60:end));
+        end
+    end
+
+    save([pwd '\data\Temperature\JNU_meanC.mat'],'JNU_meanC');
+    save([pwd '\data\Temperature\JNU_minC.mat'],'JNU_minC');
+    save([pwd '\data\Temperature\JNNU_maxC.mat'],'JNU_maxC');
+    save([pwd '\data\Temperature\JNU_precip.mat'],'JNU_precip');
+    done=1
+elseif update_wx==0
+end
+end
+
